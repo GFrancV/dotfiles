@@ -11,6 +11,13 @@ alacritty, ...) will be added as modules over time.
   - `commit-by-domain` — groups pending git changes into a reviewable,
     domain-ordered list of commits; only stages/commits after an explicit
     go-ahead.
+  - `privacy-inventory` — builds a plain-language Word inventory of the
+    personal data, emails, third parties, retention and cookies a site
+    handles, read from its code, for the client's legal team.
+- **`.agents/AGENTS.md`** — global rules meant to apply to every repo/project,
+  regardless of which coding agent is working in it. Symlinked on install to
+  each agent's own global config path: `~/.codex/AGENTS.md` (Codex CLI) and
+  `~/.claude/CLAUDE.md` (Claude Code).
 
 ## Requirements
 
@@ -66,14 +73,24 @@ one it finds, one by one.
 
 ## Adding a new module
 
-Add a line to `MODULES` in `install.sh`:
+For a folder of interchangeable items (like `.agents/skills/`, where each
+subfolder is linked 1:1 into the target dir), add a line to `MODULES` in
+`install.sh`:
 
 ```
 "label:source_relative_to_repo:absolute_target_dir"
 ```
 
-Then run `./install.sh` again — the new module's items show up in the
-selection prompts automatically.
+For a single file that needs to land at a specific target path (possibly
+under a different name, like `.agents/AGENTS.md` -> `~/.claude/CLAUDE.md`),
+add a line to `FILES` instead:
+
+```
+"label:source_file_relative_to_repo:absolute_target_file"
+```
+
+Then run `./install.sh` again — the new entry shows up in the selection
+prompts automatically.
 
 ## Windows
 
