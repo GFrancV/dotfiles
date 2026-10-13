@@ -16,6 +16,15 @@ MODULES=(
   "agents (Claude Code skills):.agents/skills:$HOME/.claude/skills"
 )
 
+# Single-file symlinks: "label:source_file_relative_to_repo:absolute_target_file"
+# Unlike MODULES (whose items are subfolders linked 1:1 by name into a target
+# dir), each entry here links one specific source file to one specific target
+# path, which can have a different name than the source.
+FILES=(
+  "global agent rules -> Codex CLI:.agents/AGENTS.md:$HOME/.codex/AGENTS.md"
+  "global agent rules -> Claude Code:.agents/AGENTS.md:$HOME/.claude/CLAUDE.md"
+)
+
 link_item() {
   local src="$1" target="$2"
 
@@ -43,7 +52,7 @@ link_item() {
 
 install_module() {
   local label="$1" src_dir="$2" target_dir="$3"
-  [ -d "$src_dir" ] || return
+  [ -d "$src_dir" ] || return 0
 
   echo "== $label =="
   local items=("$src_dir"/*/)
@@ -68,9 +77,44 @@ install_module() {
   echo
 }
 
+install_file() {
+  local label="$1" src="$2" target="$3"
+  [ -f "$src" ] || return 0
+
+  echo "== $label =="
+  mkdir -p "$(dirname "$target")"
+  local ans
+  read -rp "Install '$(basename "$target")' -> $target? [y/N] " ans || ans="n"
+  if [[ "$ans" =~ ^[Yy]$ ]]; then
+    link_item "$src" "$target"
+  else
+    echo "  skipped: $target"
+  fi
+  echo
+}
+
+check_file() {
+  local label="$1" target="$2"
+  [ -L "$target" ] || return 0
+
+  echo "== $label =="
+  if [ -e "$target" ]; then
+    echo "  ok: $target"
+  else
+    echo "  broken symlink: $target -> $(readlink "$target")"
+    local ans
+    read -rp "  remove it? [y/N] " ans || ans="n"
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+      rm "$target"
+      echo "  removed: $target"
+    fi
+  fi
+  echo
+}
+
 check_module() {
   local label="$1" target_dir="$2"
-  [ -d "$target_dir" ] || return
+  [ -d "$target_dir" ] || return 0
 
   echo "== $label =="
   local entries=("$target_dir"/*)
@@ -98,18 +142,26 @@ check_module() {
 }
 
 run_install() {
-  local module label src_rel target_dir
+  local module label src_rel target_dir target_file
   for module in "${MODULES[@]}"; do
     IFS=':' read -r label src_rel target_dir <<< "$module"
     install_module "$label" "$REPO_ROOT/$src_rel" "$target_dir"
   done
+  for module in "${FILES[@]}"; do
+    IFS=':' read -r label src_rel target_file <<< "$module"
+    install_file "$label" "$REPO_ROOT/$src_rel" "$target_file"
+  done
 }
 
 run_check() {
-  local module label src_rel target_dir
+  local module label src_rel target_dir target_file
   for module in "${MODULES[@]}"; do
     IFS=':' read -r label src_rel target_dir <<< "$module"
     check_module "$label" "$target_dir"
+  done
+  for module in "${FILES[@]}"; do
+    IFS=':' read -r label src_rel target_file <<< "$module"
+    check_file "$label" "$target_file"
   done
 }
 
