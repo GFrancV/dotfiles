@@ -23,6 +23,8 @@ MODULES=(
 FILES=(
   "global agent rules -> Codex CLI:.agents/AGENTS.md:$HOME/.codex/AGENTS.md"
   "global agent rules -> Claude Code:.agents/AGENTS.md:$HOME/.claude/CLAUDE.md"
+  "Neovim (LazyVim) config, whole folder:nvim:$HOME/.config/nvim"
+  "lazygit config:lazygit/config.yml:$HOME/.config/lazygit/config.yml"
 )
 
 link_item() {
@@ -79,7 +81,7 @@ install_module() {
 
 install_file() {
   local label="$1" src="$2" target="$3"
-  [ -f "$src" ] || return 0
+  [ -e "$src" ] || return 0 # file or folder
 
   echo "== $label =="
   mkdir -p "$(dirname "$target")"

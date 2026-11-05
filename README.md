@@ -19,6 +19,11 @@ alacritty, ...) will be added as modules over time.
   each agent's own global config path: `~/.codex/AGENTS.md` (Codex CLI) and
   `~/.claude/CLAUDE.md` (Claude Code).
 
+- **`nvim/`** — LazyVim config (Windows: `%LOCALAPPDATA%\nvim`, Linux:
+  `~/.config/nvim`). Config files only; `install.sh` symlinks the whole folder.
+- **`lazygit/config.yml`** — lazygit config (Windows:
+  `%LOCALAPPDATA%\lazygit`, Linux: `~/.config/lazygit`). Symlinked by `install.sh`.
+
 ## Requirements
 
 Linux (bash + coreutils). Windows isn't automated yet — configs are kept in
