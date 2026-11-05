@@ -4,8 +4,10 @@
 # (see README).
 #
 # Usage:
-#   ./install.sh            interactive install (default)
-#   ./install.sh check      scan managed targets for broken symlinks
+#   ./install.sh               interactive install, synced mode (symlinks)
+#   ./install.sh --copy        interactive install, fixed mode (copies files)
+#   ./install.sh update        refresh copied (fixed) installs from the repo
+#   ./install.sh check         scan managed targets for broken symlinks
 set -euo pipefail
 shopt -s nullglob
 
@@ -52,6 +54,31 @@ link_item() {
   echo "  installed: $target -> $src"
 }
 
+# Fixed install: copy instead of symlink. Edits at the destination are NOT
+# reflected in the repo; use `./install.sh update` to pull repo changes in.
+copy_item() {
+  local src="$1" target="$2"
+
+  # Never copy "through" a symlink: it would overwrite the repo file itself.
+  [ -L "$target" ] && rm "$target"
+  if [ -e "$target" ]; then
+    local bak="${target}.bak"
+    if [ -e "$bak" ]; then
+      echo "  WARNING: a backup already exists at $bak, overwriting it"
+      rm -rf "$bak"
+    fi
+    mv "$target" "$bak"
+    echo "  backup created: $bak"
+  fi
+
+  cp -r "$src" "$target"
+  echo "  copied: $src -> $target"
+}
+
+place_item() {
+  if [ "$MODE" = "copy" ]; then copy_item "$@"; else link_item "$@"; fi
+}
+
 install_module() {
   local label="$1" src_dir="$2" target_dir="$3"
   [ -d "$src_dir" ] || return 0
@@ -71,7 +98,7 @@ install_module() {
     item_name="$(basename "$item_path")"
     read -rp "Install '$item_name'? [y/N] " ans || ans="n"
     if [[ "$ans" =~ ^[Yy]$ ]]; then
-      link_item "$item_path" "$target_dir/$item_name"
+      place_item "$item_path" "$target_dir/$item_name"
     else
       echo "  skipped: $item_name"
     fi
@@ -88,7 +115,7 @@ install_file() {
   local ans
   read -rp "Install '$(basename "$target")' -> $target? [y/N] " ans || ans="n"
   if [[ "$ans" =~ ^[Yy]$ ]]; then
-    link_item "$src" "$target"
+    place_item "$src" "$target"
   else
     echo "  skipped: $target"
   fi
@@ -155,6 +182,46 @@ run_install() {
   done
 }
 
+# Refresh one fixed (copied) install. Symlinks (synced) and missing targets are
+# skipped; only differing copies are offered for overwrite.
+update_item() {
+  local src="$1" target="$2" ans
+  [ -L "$target" ] && { echo "  synced (symlink), nothing to do: $target"; return; }
+  [ -e "$target" ] || return 0
+  if diff -rq "$src" "$target" > /dev/null; then
+    echo "  up to date: $target"
+    return
+  fi
+  echo "  differs: $target"
+  diff -rq "$src" "$target" | sed 's/^/    /' || true
+  read -rp "  overwrite from repo? (merges; files only in target are kept) [y/N] " ans || ans="n"
+  if [[ "$ans" =~ ^[Yy]$ ]]; then
+    if [ -d "$src" ]; then cp -r "$src/." "$target/"; else cp "$src" "$target"; fi
+    echo "  updated: $target"
+  else
+    echo "  skipped: $target"
+  fi
+}
+
+run_update() {
+  local module label src_rel target_dir target_file item
+  for module in "${MODULES[@]}"; do
+    IFS=':' read -r label src_rel target_dir <<< "$module"
+    echo "== $label =="
+    for item in "$REPO_ROOT/$src_rel"/*/; do
+      item="${item%/}"
+      update_item "$item" "$target_dir/$(basename "$item")"
+    done
+    echo
+  done
+  for module in "${FILES[@]}"; do
+    IFS=':' read -r label src_rel target_file <<< "$module"
+    echo "== $label =="
+    update_item "$REPO_ROOT/$src_rel" "$target_file"
+    echo
+  done
+}
+
 run_check() {
   local module label src_rel target_dir target_file
   for module in "${MODULES[@]}"; do
@@ -167,15 +234,21 @@ run_check() {
   done
 }
 
-case "${1:-install}" in
-  install)
-    run_install
-    ;;
-  check)
-    run_check
-    ;;
-  *)
-    echo "Usage: $0 [install|check]" >&2
-    exit 1
-    ;;
+MODE=link
+CMD=install
+for arg in "$@"; do
+  case "$arg" in
+    --copy) MODE=copy ;;
+    install|update|check) CMD="$arg" ;;
+    *)
+      echo "Usage: $0 [install|update|check] [--copy]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+case "$CMD" in
+  install) run_install ;;
+  update) run_update ;;
+  check) run_check ;;
 esac

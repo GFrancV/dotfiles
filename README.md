@@ -54,6 +54,24 @@ folder you casually delete or relocate.
 You'll be prompted per item (`[y/N]`) for each module found. Answering `y`
 creates a symlink from the repo into place; `N`/Enter skips it.
 
+Two install modes:
+
+- **Synced** (default): `./install.sh` symlinks from the repo. Edits at the
+  destination edit the repo file directly.
+- **Fixed**: `./install.sh --copy` copies the files instead. The installed
+  config is independent of the repo (safe to move/delete it, good for
+  machines you don't want tracking the repo).
+
+To pull repo changes into fixed (copied) installs:
+
+```sh
+./install.sh update
+```
+
+It compares each installed copy with the repo, lists what differs and asks
+per item before overwriting (merges; files that exist only at the
+destination are kept). Symlinked (synced) items are skipped.
+
 **3. (Optional) check for broken symlinks**, e.g. after moving the repo or
 if a link stops working:
 
